@@ -1,0 +1,18 @@
+# training params
+n_epoch: 1300
+batch_size: 64
+lrate: 1.0e-4
+optim: 'AdamW'
+optim_args:
+  weight_decay: 0.03
+  betas: [0.99, 0.999]
+warm_epoch: 13
+load_epoch: -1
+flip: True
+ema: 0.9999
+
+# testing params
+n_sample: 30
+w: 0.3
+save_dir: './1300_conditional_vit'
+save_model: True
