@@ -34,18 +34,29 @@ class DIT(nn.Module):
         self.ti_1 = nn.Linear(128, 400)
         self.ti_2 = nn.Linear(400, 768)
 
-    def forward(self, x, t):
+        # Class conditioning projection (to be added into the time embedding)
+        self.class_emb = nn.Embedding(10, 128)
+        self.cls_ti_1 = nn.Linear(128, 400)
+        self.cls_ti_2 = nn.Linear(400, 768)
 
-        # getting time embeddings
+    def forward(self, x, t, y):
+
+        # getting time embeddings (expects numeric timesteps, shape [B])
         t_emb = get_time_embedding(torch.as_tensor(t).long(), 128)
-
-        # projecting time embeddings to D = 768 dimensions
         time_proj1 = self.ti_1(t_emb)
-        time_proj2 = self.ti_2(time_proj1)
+        time_proj2 = self.ti_2(time_proj1)  # [B, 768]
 
-        # Reshaping time embedding [32, 768, 1, 1] => [32, 768] => [32, 1, 768]
-        t_reshaped = time_proj2.squeeze(-2).squeeze(-1)
-        t_reshaped = t_reshaped.unsqueeze(1)
+        # --- class conditioning: project class id and add into the time embedding ---
+        y_tensor = torch.as_tensor(y).long().to(x.device)
+        cls_emb = self.class_emb(y_tensor)               
+        cls_proj1 = self.cls_ti_1(cls_emb)
+        cls_proj2 = self.cls_ti_2(cls_proj1)  # [B, 768]
+
+        # add class projection into the time projection so the time token carries class info
+        time_proj2 = time_proj2 + cls_proj2
+
+        # Reshaping time embedding into a token [B, 1, 768]
+        t_reshaped = time_proj2.unsqueeze(1)
 
 
         # 32, 1, 28, 28 -> 32, 1, 7*4, 7*4 -> 32, 1, 7, 7, 4, 4 -> 32, 7, 7, 4, 4, 1 -> 32, 7*7, 4*4*1 - > 32, num_patches, patch_dim
@@ -57,7 +68,7 @@ class DIT(nn.Module):
         #Add position embedding to patch embedding
         x = self.position_embedding + x
 
-        # concatenating time embedding
+        # concatenating time (now also class-conditioned) embedding
         x = torch.cat([x, t_reshaped], dim=1)
 
         #Run embedding dropout
@@ -67,7 +78,7 @@ class DIT(nn.Module):
         x = self.transformer_encoder(x)
 
         # Unpatchify i.e. (B,patches,hidden_size) -> (B,patches,channels * patch_width * patch_height)
-        x = self.proj_out(x[:, 1:]) # note here we are ignore the first vector which represents the matured time embedding
+        x = self.proj_out(x[:, 1:]) # note here we are ignore the first vector which represents the matured time+class embedding
 
         # combine all the patches to form image
         x = rearrange(x, 'b (nh nw) (ph pw c) -> b c (nh ph) (nw pw)',ph=4,pw=4,nw=7,nh=7)

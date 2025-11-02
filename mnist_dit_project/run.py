@@ -2,7 +2,7 @@
 
 import os
 import torch
-from dataset import DataLoader
+from dataset import MNISTDataLoader
 from model import DIT
 from trainer import Trainer
 from infer import generate_samples
@@ -11,13 +11,17 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # Initialize DataLoader
-    data_loader = DataLoader()
-    
+    data_loader_obj = MNISTDataLoader(batch_size=32, shuffle=True)
+    data_loader = data_loader_obj.get_data_loader()
+
     # Initialize Model
     model = DIT().to(device)
-    
+
+    # Initialize optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=2e-4)
+
     # Initialize Trainer
-    trainer = Trainer(model, data_loader, device)
+    trainer = Trainer(model, data_loader, optimizer, device)
     
     # Load existing model weights if available
     checkpoint_path = os.path.join('mnist', 'dit_ckpt.pth')

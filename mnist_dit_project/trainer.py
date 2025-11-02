@@ -1,3 +1,8 @@
+import torch
+import numpy as np
+from tqdm import tqdm
+
+
 class Trainer:
     def __init__(self, model, data_loader, optimizer, device, num_epochs=40, checkpoint_path='mnist_dit_ckpt.pth'):
         self.model = model
@@ -11,13 +16,16 @@ class Trainer:
         self.model.train()
         for epoch in range(self.num_epochs):
             losses = []
-            for im, _ in tqdm(self.data_loader):
+            # Expect dataloader to yield (image, label)
+            for im, y in tqdm(self.data_loader):
                 self.optimizer.zero_grad()
                 im = im.float().to(self.device)
+                y = y.long().to(self.device)
                 noise = torch.randn_like(im).to(self.device)
-                t = torch.randint(low=0, high=1000, size=(im.shape[0],)).to(self.device)
+                t = torch.randint(low=0, high=1000, size=(im.shape[0],), device=self.device)
                 noisy_im = self.add_noise(im, noise, t)
-                noise_pred = self.model(noisy_im, t)
+                # pass labels to the model so it learns class-conditioned denoising
+                noise_pred = self.model(noisy_im, t, y)
                 loss = torch.nn.MSELoss()(noise_pred, noise)
                 losses.append(loss.item())
                 loss.backward()

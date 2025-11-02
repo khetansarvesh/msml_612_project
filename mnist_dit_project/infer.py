@@ -35,6 +35,7 @@ def generate_samples(
     beta_end: float = 0.02,
     beta_schedule: str = "linear",
     save_path: Optional[str] = None,
+    class_label: Optional[int] = None,
 ) -> Image.Image:
     """
     Run DDPM-style ancestral sampling and return a PIL image grid.
@@ -51,11 +52,15 @@ def generate_samples(
     with torch.no_grad():
         xt = torch.randn((num_samples, im_channels, im_size, im_size), device=device)
 
+        # passing class info to model at every denoising step (accept single int class for all samples)
+        y_tensor = torch.full((num_samples,), int(class_label), device=device, dtype=torch.long)
+
         for i in tqdm(list(reversed(range(num_steps))), desc="Sampling"):
             t_idx = int(i)
             t_tensor = torch.full((num_samples,), t_idx, device=device, dtype=torch.long)
 
-            noise_pred = model(xt, t_tensor)
+            # pass class conditioning (y_tensor) if available
+            noise_pred = model(xt, t_tensor, y=y_tensor)
 
             # calculating Xt-1 using the derived formula
             mean = (xt - (betas[t_idx] * noise_pred) / sqrt_one_minus_alpha_cumprod[t_idx]) / torch.sqrt(1.0 - betas[t_idx])
