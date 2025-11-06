@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from einops import rearrange
+from attention import TransformerEncoderLayer
 
 
 def get_time_embedding(time_steps, # 1D array of timesteps eg [1,10,500,40,300]
@@ -24,13 +25,16 @@ class DIT(nn.Module):
         self.position_embedding = nn.Parameter(data=torch.randn(1, 49, 768),requires_grad=True)
         self.embedding_dropout = nn.Dropout(p=0.1)
 
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer=nn.TransformerEncoderLayer(d_model=768,
-                                                                                                  nhead=2,
-                                                                                                  dim_feedforward=3072,
-                                                                                                  activation="gelu",
-                                                                                                  batch_first=True,
-                                                                                                  norm_first=True), # Create a single Transformer Encoder Layer
-                                                        num_layers=2) # Stack it N times
+        # self.transformer_encoder = nn.TransformerEncoder(encoder_layer=nn.TransformerEncoderLayer(d_model=768,
+        #                                                                                           nhead=2,
+        #                                                                                           dim_feedforward=3072,
+        #                                                                                           activation="gelu",
+        #                                                                                           batch_first=True,
+        #                                                                                           norm_first=True), # Create a single Transformer Encoder Layer
+        #                                                 num_layers=2) # Stack it N times
+
+        self.transformer_encoder_layer = TransformerEncoderLayer(dim=768, num_heads_q=8, num_heads_kv=2, head_dim=64)
+        self.transformer_encoder = nn.Sequential(self.transformer_encoder_layer,self.transformer_encoder_layer)
 
         # Final Linear Layer
         self.proj_out = nn.Linear(768, 1*4*4)
