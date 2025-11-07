@@ -5,7 +5,7 @@ import torch
 from dataset import MNISTDataLoader
 from model import DIT
 from trainer import Trainer
-from infer import generate_samples
+from infer import generate_samples, generate_timestep_grid
 from utils import set_seed, log
 
 def main():
@@ -97,6 +97,23 @@ def main():
     
     log(f"Sample grid saved to {infer_config['save_path']}")
     img.show()
+
+    # Generate timestep grid (10x10: 10 classes x 10 timesteps)
+    log("Generating timestep grid (10 classes x 10 timesteps)...")
+    timestep_grid_img = generate_timestep_grid(
+        model=model,
+        im_size=model_config['image_size'],
+        im_channels=model_config['image_channels'],
+        device=device,
+        num_steps=diff_config['num_steps'],
+        beta_start=diff_config['beta_start'],
+        beta_end=diff_config['beta_end'],
+        beta_schedule=diff_config['beta_schedule'],
+        save_path='outputs/timestep_grid_10x10.png',
+        seed=infer_config.get('seed') or seed
+    )
+    log("Timestep grid saved to outputs/timestep_grid_10x10.png")
+    timestep_grid_img.show()
 
 
 
