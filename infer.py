@@ -8,6 +8,7 @@ from torchvision.utils import make_grid
 import torchvision
 from tqdm import tqdm
 from PIL import Image
+from utils import set_seed
 
 
 def get_beta_schedule(num_steps: int, beta_start: float = 1e-4, beta_end: float = 0.02, schedule: str = "linear") -> Tensor:
@@ -36,6 +37,7 @@ def generate_samples(
     beta_schedule: str = "linear",
     save_path: Optional[str] = None,
     class_label: Optional[int] = None,
+    seed: Optional[int] = None,
 ) -> Image.Image:
     """
     Run DDPM-style ancestral sampling and return a PIL image grid.
@@ -44,6 +46,10 @@ def generate_samples(
     """
     model.eval()
     device = torch.device(device)
+
+    if seed is not None:
+        set_seed(int(seed))
+        
     betas = get_beta_schedule(num_steps, beta_start, beta_end, schedule=beta_schedule).to(device)  # (num_steps,)
     alphas = 1.0 - betas
     alpha_cumprod = torch.cumprod(alphas, dim=0)  # (num_steps,)
