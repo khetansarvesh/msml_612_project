@@ -62,12 +62,17 @@ def main():
         optimizer,
         device,
         num_epochs=train_config['num_epochs'],
-        checkpoint_path=train_config['checkpoint_path']
+        checkpoint_path=train_config['checkpoint_path'],
+        save_every_n_epochs=train_config['save_every_n_epochs']
     )
     
     # Start training
     log("Starting Training...")
     trainer.train()
+    
+    # Save training loss visualization
+    log("Saving training loss visualization...")
+    trainer.plot_training_loss('outputs/training_loss.png')
 
     # Generate samples after training
     log("Generating Samples...")

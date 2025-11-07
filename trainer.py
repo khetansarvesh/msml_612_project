@@ -1,19 +1,26 @@
 import torch
 import numpy as np
 from tqdm import tqdm
+from pathlib import Path
+import matplotlib.pyplot as plt
 
 
 class Trainer:
-    def __init__(self, model, data_loader, optimizer, device, num_epochs=40, checkpoint_path='mnist_dit_ckpt.pth'):
+    def __init__(self, model, data_loader, optimizer, device, num_epochs=40, checkpoint_path, save_every_n_epochs):
         self.model = model
         self.data_loader = data_loader
         self.optimizer = optimizer
         self.device = device
         self.num_epochs = num_epochs
         self.checkpoint_path = checkpoint_path
+        self.save_every_n_epochs = save_every_n_epochs
+        self.epoch_losses = []  # Track losses for visualization
+        self.best_loss = float('inf')
+        self.checkpoint_dir = Path(checkpoint_path)
 
     def train(self):
         self.model.train()
+        
         for epoch in range(self.num_epochs):
             losses = []
             # Expect dataloader to yield (image, label)
@@ -30,8 +37,19 @@ class Trainer:
                 losses.append(loss.item())
                 loss.backward()
                 self.optimizer.step()
-            print(f'Finished epoch: {epoch + 1} | Loss: {np.mean(losses)}')
-            self.save_checkpoint()
+            
+            epoch_loss = np.mean(losses)
+            self.epoch_losses.append(epoch_loss)
+            print(f'Finished epoch: {epoch + 1} | Loss: {epoch_loss}')
+            
+            # Save checkpoint at specified intervals
+            if (epoch + 1) % self.save_every_n_epochs == 0:
+                self.save_periodic_checkpoint(epoch + 1)
+            
+            # Save best checkpoint if loss improved
+            if epoch_loss < self.best_loss:
+                self.best_loss = epoch_loss
+                self.save_best_checkpoint()
 
     def add_noise(self, im, noise, t):
         betas = torch.linspace(0.0001, 0.02, 1000).to(self.device)
@@ -40,3 +58,33 @@ class Trainer:
 
     def save_checkpoint(self):
         torch.save(self.model.state_dict(), self.checkpoint_path)
+    
+    def save_best_checkpoint(self):
+        """Save the best checkpoint (lowest loss)."""
+        best_checkpoint_path = self.checkpoint_dir / 'best_model.pth'
+        torch.save(self.model.state_dict(), best_checkpoint_path)
+        print(f"Best model saved to {best_checkpoint_path}")
+    
+    def save_periodic_checkpoint(self, epoch):
+        """Save checkpoint at specified epoch."""
+        periodic_checkpoint_path = self.checkpoint_dir / f'checkpoint_epoch_{epoch}.pth'
+        torch.save(self.model.state_dict(), periodic_checkpoint_path)
+        print(f"Checkpoint saved to {periodic_checkpoint_path}")
+    
+    def plot_training_loss(self, save_path='outputs/training_loss.png'):
+        """Plot and save training loss visualization."""
+
+        # Create outputs directory if it doesn't exist
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(1, len(self.epoch_losses) + 1), self.epoch_losses, 'b-', linewidth=2)
+        plt.xlabel('Epoch', fontsize=12)
+        plt.ylabel('Loss', fontsize=12)
+        plt.title('Training Loss', fontsize=14, fontweight='bold')
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=150)
+        plt.close()
+        
+        print(f"Training loss plot saved to {save_path}")

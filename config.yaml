@@ -32,8 +32,8 @@ training:
   adam_eps: 1.0e-8
   weight_decay: 1.0e-4
   # Checkpoint settings
-  checkpoint_path: "mnist_dit_ckpt.pth"
-  save_every_n_epochs: 1  # save checkpoint after every N epochs
+  checkpoint_path: "model/mnist_dit_ckpt.pth"
+  save_every_n_epochs: 40  # save checkpoint after every N epochs
   # Resume from checkpoint (set to None or empty string to skip)
   resume_from: null
 
