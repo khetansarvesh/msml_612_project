@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 
 class Trainer:
-    def __init__(self, model, data_loader, optimizer, device, num_epochs=40, checkpoint_path, save_every_n_epochs):
+    def __init__(self, model, data_loader, optimizer, device, checkpoint_path, save_every_n_epochs, num_epochs=40, rank=0):
         self.model = model
         self.data_loader = data_loader
         self.optimizer = optimizer
@@ -14,6 +14,7 @@ class Trainer:
         self.num_epochs = num_epochs
         self.checkpoint_path = checkpoint_path
         self.save_every_n_epochs = save_every_n_epochs
+        self.rank = rank
         self.epoch_losses = []  # Track losses for visualization
         self.best_loss = float('inf')
         self.checkpoint_dir = Path(checkpoint_path)
@@ -22,9 +23,13 @@ class Trainer:
         self.model.train()
         
         for epoch in range(self.num_epochs):
+            # Set epoch for DistributedSampler to ensure proper shuffling
+            if hasattr(self.data_loader.sampler, 'set_epoch'):
+                self.data_loader.sampler.set_epoch(epoch)
+                
             losses = []
             # Expect dataloader to yield (image, label)
-            for im, y in tqdm(self.data_loader):
+            for im, y in tqdm(self.data_loader, disable=(self.rank != 0)):
                 self.optimizer.zero_grad()
                 im = im.float().to(self.device)
                 y = y.long().to(self.device)
@@ -40,14 +45,15 @@ class Trainer:
             
             epoch_loss = np.mean(losses)
             self.epoch_losses.append(epoch_loss)
-            print(f'Finished epoch: {epoch + 1} | Loss: {epoch_loss}')
+            if self.rank == 0:
+                print(f'Finished epoch: {epoch + 1} | Loss: {epoch_loss}')
             
-            # Save checkpoint at specified intervals
-            if (epoch + 1) % self.save_every_n_epochs == 0:
+            # Save checkpoint at specified intervals (only rank 0)
+            if self.rank == 0 and (epoch + 1) % self.save_every_n_epochs == 0:
                 self.save_periodic_checkpoint(epoch + 1)
             
-            # Save best checkpoint if loss improved
-            if epoch_loss < self.best_loss:
+            # Save best checkpoint if loss improved (only rank 0)
+            if self.rank == 0 and epoch_loss < self.best_loss:
                 self.best_loss = epoch_loss
                 self.save_best_checkpoint()
 
