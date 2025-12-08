@@ -71,8 +71,14 @@ def generate_samples(
 
             # calculating Xt-1 using the derived formula
             mean = (xt - (betas[t_idx] * noise_pred) / sqrt_one_minus_alpha_cumprod[t_idx]) / torch.sqrt(1.0 - betas[t_idx])
-            variance = ((1.0 - alpha_cumprod[t_idx - 1]) / (1.0 - alpha_cumprod[t_idx])) * betas[t_idx]
-            sigma = torch.sqrt(variance) if t_idx > 0 else 0.0
+            
+            # Calculate variance (handle edge case when t_idx = 0)
+            if t_idx > 0:
+                variance = ((1.0 - alpha_cumprod[t_idx - 1]) / (1.0 - alpha_cumprod[t_idx])) * betas[t_idx]
+                sigma = torch.sqrt(variance)
+            else:
+                sigma = 0.0
+            
             xt = mean + sigma * torch.randn_like(xt)
 
         ims = torch.clamp(xt, -1.0, 1.0).detach().cpu()
@@ -151,8 +157,14 @@ def generate_timestep_grid(
                 noise_pred = model(xt, t_tensor, y=y_tensor)
                 
                 mean = (xt - (betas[t_idx] * noise_pred) / sqrt_one_minus_alpha_cumprod[t_idx]) / torch.sqrt(1.0 - betas[t_idx])
-                variance = ((1.0 - alpha_cumprod[t_idx - 1]) / (1.0 - alpha_cumprod[t_idx])) * betas[t_idx]
-                sigma = torch.sqrt(variance) if t_idx > 0 else 0.0
+                
+                # Calculate variance (handle edge case when t_idx = 0)
+                if t_idx > 0:
+                    variance = ((1.0 - alpha_cumprod[t_idx - 1]) / (1.0 - alpha_cumprod[t_idx])) * betas[t_idx]
+                    sigma = torch.sqrt(variance)
+                else:
+                    sigma = 0.0
+                
                 xt = mean + sigma * torch.randn_like(xt)
     
     # Normalize images from [-1, 1] to [0, 1]

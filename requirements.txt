@@ -6,3 +6,4 @@ Pillow
 einops
 pyyaml
 matplotlib
+scipy

@@ -4,7 +4,7 @@ import yaml
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP #wraps your model so gradients get combined across GPUs automatically
-from dataset import MNISTDataLoader
+from dataset import CIFAR10DataLoader
 from model import DIT
 from trainer import Trainer
 from infer import generate_samples, generate_timestep_grid
@@ -53,7 +53,7 @@ def main():
     if rank == 0:
         log("Initializing DataLoader...")
     data_config = config['data']
-    data_loader_obj = MNISTDataLoader(
+    data_loader_obj = CIFAR10DataLoader(
         batch_size=data_config['batch_size'],
         shuffle=data_config['shuffle'],
         rank=rank,
@@ -65,7 +65,15 @@ def main():
     if rank == 0:
         log("Initializing Model...")
     model_config = config['model']
-    model = DIT().to(device)
+    model = DIT(
+        image_size=model_config['image_size'],
+        image_channels=model_config['image_channels'],
+        patch_size=4,  # Standard patch size
+        hidden_dim=model_config['hidden_dim'],
+        depth=model_config['depth'],
+        num_heads=model_config['num_heads'],
+        num_classes=10  # CIFAR-10 has 10 classes
+    ).to(device)
     
     # Wrap model with DDP
     model = DDP(model, device_ids=[local_rank], output_device=local_rank)
@@ -83,6 +91,7 @@ def main():
     # Initialize Trainer
     if rank == 0:
         log("Initializing Trainer...")
+    diff_config = config['diffusion']
     trainer = Trainer(
         model,
         data_loader,
@@ -91,7 +100,10 @@ def main():
         num_epochs=train_config['num_epochs'],
         checkpoint_path=train_config['checkpoint_path'],
         save_every_n_epochs=train_config['save_every_n_epochs'],
-        rank=rank
+        rank=rank,
+        num_steps=diff_config['num_steps'],
+        beta_start=diff_config['beta_start'],
+        beta_end=diff_config['beta_end']
     )
     
     # Start training

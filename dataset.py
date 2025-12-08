@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 
 from torch.utils.data.distributed import DistributedSampler #for splitting dataset across GPUs
 
-class MNISTDataLoader:
+class CIFAR10DataLoader:
     def __init__(self, batch_size=32, shuffle=True, rank=0, world_size=1):
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -12,9 +12,9 @@ class MNISTDataLoader:
         self.world_size = world_size #total number of processes across all GPUs
         self.transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.5,), (0.5,))
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Normalize RGB channels to [-1, 1]
         ])
-        self.dataset = datasets.MNIST(root='./data', train=True, transform=self.transform, download=True)
+        self.dataset = datasets.CIFAR10(root='./data', train=True, transform=self.transform, download=True)
         
         if self.world_size > 1:
             self.sampler = DistributedSampler(self.dataset, num_replicas=self.world_size, rank=self.rank, shuffle=True)
