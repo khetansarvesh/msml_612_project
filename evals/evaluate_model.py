@@ -14,9 +14,9 @@ from torchvision import datasets,transforms
 import matplotlib.pyplot as plt
 from PIL import Image
 
-from model import DIT
-from dataset import CIFAR10DataLoader
-from evaluation import calculate_fid, calculate_inception_score, calculate_class_conditioning_accuracy
+from models.dit_model import DIT
+from data_loader.dataset import CIFAR10DataLoader
+from evals.evaluation import calculate_fid, calculate_inception_score, calculate_class_conditioning_accuracy
 from infer import generate_samples
 from utils import set_seed
 

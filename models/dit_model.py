@@ -11,7 +11,7 @@ This implementation uses a Vision Transformer architecture with:
 import torch
 import torch.nn as nn
 from einops import rearrange
-from attention import TransformerEncoderLayer
+from .attention import TransformerEncoderLayer
 
 
 def get_time_embedding(time_steps, temb_dim):

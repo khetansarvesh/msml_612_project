@@ -4,10 +4,10 @@ import yaml
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP #wraps your model so gradients get combined across GPUs automatically
-from dataset import CIFAR10DataLoader
-from model import DIT
+from data_loader.dataset import CIFAR10DataLoader
+from models.dit_model import DIT
 from trainer import Trainer
-from infer import generate_samples, generate_timestep_grid
+from inference.infer import generate_samples, generate_timestep_grid
 from utils import set_seed, log
 
 def setup_distributed():
