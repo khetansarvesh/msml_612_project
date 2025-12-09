@@ -36,6 +36,9 @@ training:
   save_every_n_epochs: 10 # save checkpoint after every N epochs (checkpoints at 40, 80, 120, 160, 200)
   # Resume from checkpoint (set to None or empty string to skip)
   resume_from: null
+  # Spot instance options (for AWS training)
+  save_every_epoch: false # Enable to save after every epoch (useful for spot instances, but slower)
+  auto_resume: true # Automatically resume from latest checkpoint if available
 
 # ============================================================================
 # Diffusion process configuration

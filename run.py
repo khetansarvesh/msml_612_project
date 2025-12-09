@@ -100,11 +100,36 @@ def main():
         num_epochs=train_config['num_epochs'],
         checkpoint_path=train_config['checkpoint_path'],
         save_every_n_epochs=train_config['save_every_n_epochs'],
+        save_every_epoch=train_config.get('save_every_epoch', False),
         rank=rank,
         num_steps=diff_config['num_steps'],
         beta_start=diff_config['beta_start'],
         beta_end=diff_config['beta_end']
     )
+    
+    # Create checkpoint directory if it doesn't exist
+    checkpoint_dir = Path(train_config['checkpoint_path']).parent
+    if rank == 0:
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Load checkpoint if resuming (synchronize across all ranks)
+    if dist.is_initialized():
+        dist.barrier()  # Wait for rank 0 to create directory
+    
+    resume_from = train_config.get('resume_from')
+    if resume_from:
+        if rank == 0:
+            log(f"Attempting to resume from checkpoint: {resume_from}")
+        trainer.load_checkpoint(resume_from)
+    elif train_config.get('auto_resume', False):
+        # Auto-resume from latest checkpoint if it exists
+        latest_checkpoint = checkpoint_dir / 'latest_checkpoint.pth'
+        if latest_checkpoint.exists():
+            if rank == 0:
+                log(f"Auto-resuming from latest checkpoint: {latest_checkpoint}")
+            trainer.load_checkpoint(str(latest_checkpoint))
+        elif rank == 0:
+            log("No checkpoint found for auto-resume. Starting from scratch.")
     
     # Start training
     if rank == 0:
@@ -116,50 +141,51 @@ def main():
         log("Saving training loss visualization...")
         trainer.plot_training_loss('outputs/training_loss.png')
 
+    # TODO: Uncomment this section to generate samples after training completes
     # Generate samples after training (only rank 0)
-    if rank == 0:
-        log("Generating Samples...")
-        infer_config = config['inference']
-        diff_config = config['diffusion']
-        
-        # Use model.module for inference to unwrap DDP
-        inference_model = model.module
-        
-        img = generate_samples(
-            model=inference_model,
-            num_samples=infer_config['num_samples'],
-            im_size=model_config['image_size'],
-            im_channels=model_config['image_channels'],
-            device=device,
-            num_steps=diff_config['num_steps'],
-            num_grid_rows=infer_config['num_grid_rows'],
-            beta_start=diff_config['beta_start'],
-            beta_end=diff_config['beta_end'],
-            beta_schedule=diff_config['beta_schedule'],
-            save_path=infer_config['save_path'],
-            class_label=infer_config['class_label'],
-            seed=infer_config.get('seed') or seed
-        )
-        
-        log(f"Sample grid saved to {infer_config['save_path']}")
-        # img.show() # Disable show in distributed environment usually, or keep if local
-
-        # Generate timestep grid (10x10: 10 classes x 10 timesteps)
-        log("Generating timestep grid (10 classes x 10 timesteps)...")
-        timestep_grid_img = generate_timestep_grid(
-            model=inference_model,
-            im_size=model_config['image_size'],
-            im_channels=model_config['image_channels'],
-            device=device,
-            num_steps=diff_config['num_steps'],
-            beta_start=diff_config['beta_start'],
-            beta_end=diff_config['beta_end'],
-            beta_schedule=diff_config['beta_schedule'],
-            save_path='outputs/timestep_grid_10x10.png',
-            seed=infer_config.get('seed') or seed
-        )
-        log("Timestep grid saved to outputs/timestep_grid_10x10.png")
-        # timestep_grid_img.show()
+    # if rank == 0:
+    #     log("Generating Samples...")
+    #     infer_config = config['inference']
+    #     diff_config = config['diffusion']
+    #     
+    #     # Use model.module for inference to unwrap DDP
+    #     inference_model = model.module
+    #     
+    #     img = generate_samples(
+    #         model=inference_model,
+    #         num_samples=infer_config['num_samples'],
+    #         im_size=model_config['image_size'],
+    #         im_channels=model_config['image_channels'],
+    #         device=device,
+    #         num_steps=diff_config['num_steps'],
+    #         num_grid_rows=infer_config['num_grid_rows'],
+    #         beta_start=diff_config['beta_start'],
+    #         beta_end=diff_config['beta_end'],
+    #         beta_schedule=diff_config['beta_schedule'],
+    #         save_path=infer_config['save_path'],
+    #         class_label=infer_config['class_label'],
+    #         seed=infer_config.get('seed') or seed
+    #     )
+    #     
+    #     log(f"Sample grid saved to {infer_config['save_path']}")
+    #     # img.show() # Disable show in distributed environment usually, or keep if local
+    #
+    #     # Generate timestep grid (10x10: 10 classes x 10 timesteps)
+    #     log("Generating timestep grid (10 classes x 10 timesteps)...")
+    #     timestep_grid_img = generate_timestep_grid(
+    #         model=inference_model,
+    #         im_size=model_config['image_size'],
+    #         im_channels=model_config['image_channels'],
+    #         device=device,
+    #         num_steps=diff_config['num_steps'],
+    #         beta_start=diff_config['beta_start'],
+    #         beta_end=diff_config['beta_end'],
+    #         beta_schedule=diff_config['beta_schedule'],
+    #         save_path='outputs/timestep_grid_10x10.png',
+    #         seed=infer_config.get('seed') or seed
+    #     )
+    #     log("Timestep grid saved to outputs/timestep_grid_10x10.png")
+    #     # timestep_grid_img.show()
 
     cleanup_distributed()
 

@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 
 class Trainer:
     def __init__(self, model, data_loader, optimizer, device, checkpoint_path, save_every_n_epochs, 
-                 num_epochs=40, rank=0, num_steps=1000, beta_start=1e-4, beta_end=0.02):
+                 num_epochs=40, rank=0, num_steps=1000, beta_start=1e-4, beta_end=0.02, 
+                 save_every_epoch=False):
         self.model = model
         self.data_loader = data_loader
         self.optimizer = optimizer
@@ -15,6 +16,7 @@ class Trainer:
         self.num_epochs = num_epochs
         self.checkpoint_path = checkpoint_path
         self.save_every_n_epochs = save_every_n_epochs
+        self.save_every_epoch = save_every_epoch  # For spot instances
         self.rank = rank
         self.epoch_losses = []  # Track losses for visualization
         self.best_loss = float('inf')
@@ -28,6 +30,9 @@ class Trainer:
         # Training time tracking
         self.epoch_times = []  # Time per epoch
         self.total_training_time = 0.0
+        
+        # Track starting epoch for resume
+        self.start_epoch = 0
 
     def train(self):
         import time
@@ -35,7 +40,7 @@ class Trainer:
         
         training_start_time = time.time()
         
-        for epoch in range(self.num_epochs):
+        for epoch in range(self.start_epoch, self.num_epochs):
             epoch_start_time = time.time()
             # Set epoch for DistributedSampler to ensure proper shuffling
             if hasattr(self.data_loader.sampler, 'set_epoch'):
@@ -65,8 +70,11 @@ class Trainer:
             if self.rank == 0:
                 print(f'Finished epoch: {epoch + 1} | Loss: {epoch_loss:.6f} | Time: {epoch_time:.2f}s')
             
-            # Save checkpoint at specified intervals (only rank 0)
-            if self.rank == 0 and (epoch + 1) % self.save_every_n_epochs == 0:
+            # Save checkpoint every epoch if enabled (for spot instances)
+            if self.rank == 0 and self.save_every_epoch:
+                self.save_periodic_checkpoint(epoch + 1)
+            # Otherwise save at specified intervals
+            elif self.rank == 0 and (epoch + 1) % self.save_every_n_epochs == 0:
                 self.save_periodic_checkpoint(epoch + 1)
             
             # Save best checkpoint if loss improved (only rank 0)
@@ -96,10 +104,58 @@ class Trainer:
         print(f"Best model saved to {best_checkpoint_path}")
     
     def save_periodic_checkpoint(self, epoch):
-        """Save checkpoint at specified epoch."""
+        """Save complete training state at specified epoch."""
         periodic_checkpoint_path = self.checkpoint_dir / f'checkpoint_epoch_{epoch}.pth'
-        torch.save(self.model.state_dict(), periodic_checkpoint_path)
+        
+        # Save complete training state
+        checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'epoch_losses': self.epoch_losses,
+            'epoch_times': self.epoch_times,
+            'best_loss': self.best_loss,
+            'total_training_time': self.total_training_time,
+            'rng_state': torch.get_rng_state(),
+            'cuda_rng_state': torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+        }
+        
+        torch.save(checkpoint, periodic_checkpoint_path)
         print(f"Checkpoint saved to {periodic_checkpoint_path}")
+        
+        # Also save as 'latest' for easy resume
+        latest_checkpoint_path = self.checkpoint_dir / 'latest_checkpoint.pth'
+        torch.save(checkpoint, latest_checkpoint_path)
+        print(f"Latest checkpoint saved to {latest_checkpoint_path}")
+    
+    def load_checkpoint(self, checkpoint_path):
+        """Load training state from checkpoint."""
+        if not Path(checkpoint_path).exists():
+            print(f"Checkpoint {checkpoint_path} not found. Starting from scratch.")
+            return False
+        
+        print(f"Loading checkpoint from {checkpoint_path}...")
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        
+        # Restore model and optimizer state
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        
+        # Restore training state
+        self.start_epoch = checkpoint['epoch']
+        self.epoch_losses = checkpoint.get('epoch_losses', [])
+        self.epoch_times = checkpoint.get('epoch_times', [])
+        self.best_loss = checkpoint.get('best_loss', float('inf'))
+        self.total_training_time = checkpoint.get('total_training_time', 0.0)
+        
+        # Restore RNG states for reproducibility
+        if 'rng_state' in checkpoint:
+            torch.set_rng_state(checkpoint['rng_state'])
+        if 'cuda_rng_state' in checkpoint and checkpoint['cuda_rng_state'] is not None:
+            torch.cuda.set_rng_state_all(checkpoint['cuda_rng_state'])
+        
+        print(f"Resumed from epoch {self.start_epoch} with best loss {self.best_loss:.6f}")
+        return True
     
     def plot_training_loss(self, save_path='outputs/training_loss.png'):
         """Plot and save training loss visualization with timing stats."""
