@@ -80,11 +80,18 @@ AMI_ID=$(aws ec2 describe-images \
               "Name=state,Values=available" \
     --region "$REGION" \
     --query 'sort_by(Images, &CreationDate)[-1].ImageId' \
-    --output text)
+    --output text 2>/dev/null)
+
+# Fallback to a known working AMI if lookup fails
+if [ -z "$AMI_ID" ] || [ "$AMI_ID" == "None" ]; then
+    echo "AMI lookup failed, using default Deep Learning AMI..."
+    # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.6.0 (Amazon Linux 2023) - Dec 2024
+    AMI_ID="ami-07e1ee23c621044d8"
+fi
 
 echo -e "${GREEN}✓ Using AMI: $AMI_ID${NC}"
 
-# Create launch specification file
+# Create launch specification file (without TagSpecifications - not supported in spot requests)
 cat > /tmp/spot-launch-spec.json <<EOF
 {
   "ImageId": "$AMI_ID",
@@ -99,21 +106,6 @@ cat > /tmp/spot-launch-spec.json <<EOF
         "VolumeType": "gp3",
         "DeleteOnTermination": true
       }
-    }
-  ],
-  "TagSpecifications": [
-    {
-      "ResourceType": "instance",
-      "Tags": [
-        {
-          "Key": "Name",
-          "Value": "DIT-Training-4GPU"
-        },
-        {
-          "Key": "Project",
-          "Value": "MSML-612"
-        }
-      ]
     }
   ]
 }
@@ -158,6 +150,12 @@ if [ "$INSTANCE_ID" == "None" ] || [ -z "$INSTANCE_ID" ]; then
 fi
 
 echo -e "${GREEN}✓ Instance launched: $INSTANCE_ID${NC}"
+
+# Tag the instance (can't use TagSpecifications in spot launch spec)
+aws ec2 create-tags \
+    --resources "$INSTANCE_ID" \
+    --tags "Key=Name,Value=DIT-Training-4GPU" "Key=Project,Value=MSML-612" \
+    --region "$REGION" 2>/dev/null || echo "Note: Could not tag instance"
 
 # Wait for instance to be running
 echo "Waiting for instance to be in running state..."

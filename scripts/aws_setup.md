@@ -9,15 +9,6 @@ This guide walks you through setting up a **g4dn.12xlarge Spot instance** on AWS
 - AWS credentials configured (`aws configure`)
 - SSH key pair created in AWS Console
 
-## Cost Summary
-
-**Instance: g4dn.12xlarge (4x NVIDIA T4 GPUs)**
-
-- **Spot price:** ~$1.17/hour
-- **On-Demand price:** $3.912/hour (fallback if Spot unavailable)
-- **Budget usage:** ~85 hours with $100 on Spot
-- **Training time:** ~3.5-6.5 hours for 200 epochs
-
 ## Step-by-Step Setup
 
 ### 1. Create SSH Key Pair (One-time)
