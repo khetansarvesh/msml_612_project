@@ -8,7 +8,7 @@ echo "🚀 Launching g4dn.2xlarge Instance (1 GPU)..."
 
 # Configuration
 INSTANCE_TYPE="g4dn.2xlarge"
-AMI_ID="ami-07e1ee23c621044d8"  # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.6.0
+AMI_ID="ami-050c33f4f5ebaa995"  # Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 20.04)
 KEY_NAME="dit-training-key"
 REGION="us-east-1"
 VOLUME_SIZE=100  # GB
@@ -91,13 +91,13 @@ echo "  Type: $INSTANCE_TYPE (1x T4, 16GB)"
 echo "  Cost: ~\$0.75/hour On-Demand"
 echo ""
 echo -e "${YELLOW}Budget Estimate:${NC}"
-echo "  \$100 = ~133 hours of runtime"
+echo "  $100 = ~133 hours of runtime"
 echo "  Training (200 epochs): ~15-20 hours"
-echo "  Cost per full run: ~\$11-15"
+echo "  Cost per full run: ~$11-15"
 echo "  Number of runs possible: ~6-9"
 echo ""
 echo -e "${YELLOW}Connect:${NC}"
-echo "  ssh -i ~/.ssh/${KEY_NAME}.pem ec2-user@${PUBLIC_IP}"
+echo "  ssh -i ~/.ssh/${KEY_NAME}.pem ubuntu@${PUBLIC_IP}"
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
 echo "  1. Wait 2-3 min for full initialization"

@@ -32,7 +32,7 @@ training:
   adam_eps: 1.0e-8
   weight_decay: 1.0e-4
   # Checkpoint settings
-  checkpoint_path: "model/cifar10_dit_ckpt.pth"
+  checkpoint_path: "model/"
   save_every_n_epochs: 10 # save checkpoint after every N epochs (checkpoints at 40, 80, 120, 160, 200)
   # Resume from checkpoint (set to None or empty string to skip)
   resume_from: null
