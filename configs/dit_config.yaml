@@ -67,4 +67,4 @@ inference:
 # Device and debugging
 # ============================================================================
 device: "cuda" # "cuda" or "cpu"
-deterministic_algorithms: True # enforce deterministic PyTorch algorithms
+deterministic_algorithms: False # enforce deterministic PyTorch algorithms
