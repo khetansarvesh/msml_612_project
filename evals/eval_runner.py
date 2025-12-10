@@ -1,8 +1,12 @@
 """
 Evaluate trained diffusion model.
 
+This script automatically detects the model type (DiT or UNet) from the checkpoint path
+and calculates evaluation metrics (FID, IS, class accuracy).
+
 Usage:
-    python evaluate_model.py --checkpoint model/cifar10_dit_ckpt.pth
+    python evals/eval_runner.py --checkpoint outputs/dit_outputs/trained_models/best_model.pth
+    python evals/eval_runner.py --checkpoint outputs/unet_outputs/trained_models/best_model.pth
 """
 
 import argparse
@@ -10,15 +14,17 @@ import torch
 import yaml
 import numpy as np
 from pathlib import Path
-from torchvision import datasets,transforms
+from torchvision import datasets, transforms
 import matplotlib.pyplot as plt
 from PIL import Image
+import json
 
-from models.dit_model import DIT
-from data_loader.dataset import CIFAR10DataLoader
 from evals.evaluation import calculate_fid, calculate_inception_score, calculate_class_conditioning_accuracy
-from infer import generate_samples
-from utils import set_seed
+from inference.infer import get_beta_schedule
+from utils import set_seed, detect_model_type, load_model
+
+
+
 
 
 def generate_batch_for_evaluation(model, num_samples, config, device, class_label=None):
@@ -32,10 +38,7 @@ def generate_batch_for_evaluation(model, num_samples, config, device, class_labe
     
     # Sample using the model
     model.eval()
-    
-    # Use simplified sampling (you can use generate_samples function too)
-    from infer import get_beta_schedule
-    
+        
     betas = get_beta_schedule(diff_config['num_steps'], 
                               diff_config['beta_start'], 
                               diff_config['beta_end'],
@@ -93,7 +96,7 @@ def load_real_data(num_samples=5000, device='cpu'):
     return images.to(device), labels.to(device)
 
 
-def create_comparison_grid(real_images, fake_images, save_path='outputs/real_vs_fake.png'):
+def create_comparison_grid(real_images, fake_images, save_path):
     """Create side-by-side comparison of real and generated images."""
     from torchvision.utils import make_grid
     
@@ -129,8 +132,32 @@ def create_comparison_grid(real_images, fake_images, save_path='outputs/real_vs_
 
 
 def main(args):
+    # Detect model type
+    if args.model_type:
+        model_type = args.model_type
+    else:
+        model_type = detect_model_type(args.checkpoint)
+    
+    print(f"Model type: {model_type.upper()}")
+    
+    # Determine output directory
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    else:
+        # Auto-detect from checkpoint path
+        checkpoint_path = Path(args.checkpoint)
+        if 'dit_outputs' in str(checkpoint_path):
+            output_dir = Path('outputs/dit_outputs')
+        elif 'unet_outputs' in str(checkpoint_path):
+            output_dir = Path('outputs/unet_outputs')
+        else:
+            output_dir = Path('outputs')
+    
+    output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Output directory: {output_dir}")
+    
     # Load config
-    with open('config.yaml', 'r') as f:
+    with open(args.config, 'r') as f:
         config = yaml.safe_load(f)
     
     # Set device
@@ -138,20 +165,13 @@ def main(args):
     print(f"Using device: {device}")
     
     # Set seed for reproducibility
-    set_seed(42)
+    set_seed(args.seed)
+    print(f"Random seed: {args.seed}")
     
     # Load model
     print("\nLoading model...")
     model_config = config['model']
-    model = DIT(
-        image_size=model_config['image_size'],
-        image_channels=model_config['image_channels'],
-        patch_size=4,
-        hidden_dim=model_config['hidden_dim'],
-        depth=model_config['depth'],
-        num_heads=model_config['num_heads'],
-        num_classes=10
-    ).to(device)
+    model = load_model(model_type, model_config, device)
     
     # Load checkpoint
     checkpoint_path = args.checkpoint
@@ -185,38 +205,35 @@ def main(args):
     
     # Create comparison visualization
     print("\nCreating comparison visualization...")
-    create_comparison_grid(real_images, fake_images, 'outputs/real_vs_fake.png')
+    comparison_path = output_dir / 'real_vs_fake.png'
+    create_comparison_grid(real_images, fake_images, comparison_path)
+    
+    # Calculate metrics
+    results = {
+        'model_type': model_type,
+        'num_samples': args.num_samples,
+        'checkpoint': str(checkpoint_path),
+        'seed': args.seed,
+    }
     
     # Calculate FID
     if args.calculate_fid:
         fid_score = calculate_fid(real_images, fake_images, device=device, batch_size=args.batch_size)
+        results['fid_score'] = float(fid_score)
     
     # Calculate IS
     if args.calculate_is:
         is_mean, is_std = calculate_inception_score(fake_images, device=device, batch_size=args.batch_size)
-    
-    # Calculate class conditioning accuracy (if you have a trained CIFAR-10 classifier)
-    if args.calculate_accuracy:
-        accuracy = calculate_class_conditioning_accuracy(fake_images, fake_labels, device=device, batch_size=args.batch_size)
-    
-    # Save results
-    results = {
-        'num_samples': args.num_samples,
-        'checkpoint': str(checkpoint_path),
-    }
-    
-    if args.calculate_fid:
-        results['fid_score'] = float(fid_score)
-    if args.calculate_is:
         results['inception_score_mean'] = float(is_mean)
         results['inception_score_std'] = float(is_std)
+    
+    # Calculate class conditioning accuracy
     if args.calculate_accuracy:
+        accuracy = calculate_class_conditioning_accuracy(fake_images, fake_labels, device=device, batch_size=args.batch_size)
         results['class_accuracy'] = float(accuracy)
     
-    # Save to file
-    import json
-    results_path = 'outputs/evaluation_results.json'
-    Path(results_path).parent.mkdir(parents=True, exist_ok=True)
+    # Save results
+    results_path = output_dir / 'evaluation_results.json'
     with open(results_path, 'w') as f:
         json.dump(results, f, indent=2)
     
@@ -231,12 +248,20 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate diffusion model')
-    parser.add_argument('--checkpoint', type=str, default='model/best_model.pth',
-                       help='Path to model checkpoint')
+    parser.add_argument('--checkpoint', type=str, required=True,
+                       help='Path to model checkpoint (e.g., outputs/dit_outputs/trained_models/best_model.pth)')
+    parser.add_argument('--config', type=str, default='config.yaml',
+                       help='Path to config file')
+    parser.add_argument('--model-type', type=str, default=None, choices=['dit', 'unet'],
+                       help='Model type (auto-detected from path if not specified)')
     parser.add_argument('--num-samples', type=int, default=5000,
                        help='Number of samples to generate for evaluation')
     parser.add_argument('--batch-size', type=int, default=50,
                        help='Batch size for evaluation')
+    parser.add_argument('--seed', type=int, default=42,
+                       help='Random seed for reproducibility')
+    parser.add_argument('--output-dir', type=str, default=None,
+                       help='Output directory for results (auto-detected from checkpoint path if not specified)')
     parser.add_argument('--calculate-fid', action='store_true', default=True,
                        help='Calculate FID score')
     parser.add_argument('--calculate-is', action='store_true', default=True,

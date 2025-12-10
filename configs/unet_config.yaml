@@ -1,3 +1,5 @@
+# UNet Configuration for CIFAR-10
+
 # Random seed for full reproducibility (can be overridden by SEED environment variable)
 seed: 42
 
@@ -10,13 +12,17 @@ data:
   num_workers: 0 # number of data loading workers (0 = main process)
 
 # ============================================================================
-# Model configuration
+# Model configuration - UNet specific
 # ============================================================================
 model:
   # Image properties (CIFAR-10: 32×32 RGB)
   image_size: 32
   image_channels: 3
-  # DIT (Diffusion Transformer) architecture
+  # UNet architecture parameters
+  base_channels: 64
+  channel_multipliers: [1, 2, 4, 8]
+  num_res_blocks: 2
+  # These are not used by UNet but kept for compatibility
   depth: 12
   num_heads: 8
   hidden_dim: 384
@@ -32,8 +38,8 @@ training:
   adam_eps: 1.0e-8
   weight_decay: 1.0e-4
   # Checkpoint settings
-  checkpoint_path: "model/"
-  save_every_n_epochs: 10 # save checkpoint after every N epochs (checkpoints at 40, 80, 120, 160, 200)
+  checkpoint_path: "outputs/unet_outputs/trained_models/"
+  save_every_n_epochs: 10
   # Resume from checkpoint (set to None or empty string to skip)
   resume_from: null
   # Spot instance options (for AWS training)
@@ -59,7 +65,7 @@ inference:
   num_grid_rows: 4
   class_label: 1 # class to generate (0-9 for CIFAR-10: 0=airplane, 1=automobile, 2=bird, 3=cat, 4=deer, 5=dog, 6=frog, 7=horse, 8=ship, 9=truck)
   seed: null # if provided, uses this seed for deterministic sampling
-  save_path: "outputs/sample_grid.png"
+  save_path: "outputs/unet_outputs/sample_grid.png"
 
 # ============================================================================
 # Device and debugging

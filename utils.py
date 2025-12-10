@@ -58,3 +58,68 @@ def set_seed(seed: int, deterministic: bool = True) -> None:
         # Older PyTorch versions may not have this function or some ops may
         # not support deterministic behavior; ignore in that case.
         pass
+
+
+def detect_model_type(checkpoint_path: str) -> str:
+    """
+    Detect model type from checkpoint path.
+    
+    Args:
+        checkpoint_path: Path to checkpoint file
+        
+    Returns:
+        'dit' or 'unet'
+    """
+    path_str = str(checkpoint_path).lower()
+    
+    if 'dit' in path_str:
+        return 'dit'
+    elif 'unet' in path_str:
+        return 'unet'
+    else:
+        # Default to dit if cannot determine
+        log("Warning: Could not detect model type from path. Defaulting to DiT.")
+        log("Tip: Include 'dit' or 'unet' in your checkpoint path for automatic detection.")
+        return 'dit'
+
+
+def load_model(model_type: str, model_config: dict, device: torch.device) -> torch.nn.Module:
+    """
+    Load the appropriate model based on model type.
+    
+    Args:
+        model_type: 'dit' or 'unet'
+        model_config: Model configuration dictionary
+        device: Device to load model on
+        
+    Returns:
+        Initialized model
+    """
+    from models.dit_model import DIT
+    from models.unet import UNet
+    
+    if model_type == 'dit':
+        log("Initializing DiT model...")
+        model = DIT(
+            image_size=model_config['image_size'],
+            image_channels=model_config['image_channels'],
+            patch_size=4,
+            hidden_dim=model_config['hidden_dim'],
+            depth=model_config['depth'],
+            num_heads=model_config['num_heads'],
+            num_classes=10
+        ).to(device)
+    elif model_type == 'unet':
+        log("Initializing UNet model...")
+        model = UNet(
+            image_size=model_config['image_size'],
+            image_channels=model_config['image_channels'],
+            base_channels=model_config.get('base_channels', 64),
+            channel_multipliers=tuple(model_config.get('channel_multipliers', [1, 2, 4, 8])),
+            num_res_blocks=model_config.get('num_res_blocks', 2),
+            num_classes=10
+        ).to(device)
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
+    
+    return model

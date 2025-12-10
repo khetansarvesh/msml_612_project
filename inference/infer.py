@@ -69,8 +69,8 @@ def generate_samples(
             # pass class conditioning (y_tensor) if available
             noise_pred = model(xt, t_tensor, y=y_tensor)
 
-            # calculating Xt-1 using the derived formula
-            mean = (xt - (betas[t_idx] * noise_pred) / sqrt_one_minus_alpha_cumprod[t_idx]) / torch.sqrt(1.0 - betas[t_idx])
+            # DDPM sampling formula
+            mean = (xt - (betas[t_idx] * noise_pred) / sqrt_one_minus_alpha_cumprod[t_idx]) / torch.sqrt(alphas[t_idx])
             
             # Calculate variance (handle edge case when t_idx = 0)
             if t_idx > 0:
@@ -156,7 +156,7 @@ def generate_timestep_grid(
                 # Perform denoising step
                 noise_pred = model(xt, t_tensor, y=y_tensor)
                 
-                mean = (xt - (betas[t_idx] * noise_pred) / sqrt_one_minus_alpha_cumprod[t_idx]) / torch.sqrt(1.0 - betas[t_idx])
+                mean = (xt - (betas[t_idx] * noise_pred) / sqrt_one_minus_alpha_cumprod[t_idx]) / torch.sqrt(alphas[t_idx])
                 
                 # Calculate variance (handle edge case when t_idx = 0)
                 if t_idx > 0:

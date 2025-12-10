@@ -4,7 +4,6 @@ from tqdm import tqdm
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-
 class Trainer:
     def __init__(self, model, data_loader, optimizer, device, checkpoint_path, save_every_n_epochs, 
                  num_epochs=40, rank=0, num_steps=1000, beta_start=1e-4, beta_end=0.02, 
