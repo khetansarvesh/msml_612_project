@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# Model checkpoints and training outputs
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.pb
+models/*/checkpoint_*.pth
+models/*/latest_checkpoint.pth
+models/*/best_model.pth
+new_model_artifacts/
+
+# Training outputs
+outputs/
+train/dit_training/
+logs/
+wandb/
+mlruns/
+
+# Data
+data/
+*.tar.gz
+*.zip
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Generated images (optional - remove if you want to track them)
+# inference/mnist_inference/*.png
