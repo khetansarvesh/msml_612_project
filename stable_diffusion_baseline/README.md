@@ -1,7 +1,4 @@
-Below is a **clean, professional GitHub README** tailored exactly to **your repo structure, scripts, and metrics**.
-You can copy-paste this directly as `README.md`.
 
----
 
 # Diffusion Models: UNet + MHA vs DiT + GQA
 
@@ -23,15 +20,13 @@ Both models are trained under **identical diffusion and evaluation settings** on
 │   ├── model.py            # DiT architecture with GQA
 │   ├── diffusion.py        # DDPM training + DDIM sampling
 │   ├── utils.py            # DDP utilities and image saving
-│   └── outputs/
-│       └── samples_e*.png  # Generated samples per epoch
-│
+│ 
 ├── unet/
 │   ├── train_unet.py       # Train UNet + MHA diffusion model
 │   └── outputs/
 │       └── samples_e*.png  # Generated samples per epoch
 │
-├── checkpoints/
+├── checkpoints/            # Generated upon training   
 │   ├── dit/
 │   │   ├── best.pt
 │   │   ├── last.pt
@@ -189,14 +184,3 @@ While transformer-based diffusion models exist, this work explores the integrati
 
 ---
 
-## License
-
-This repository is intended for **educational and research purposes**.
-
----
-
-If you want, I can:
-
-* add **example plots** (FID vs epoch)
-* make a **results table** auto-generated from CSV
-* tailor this README to your **MSML612 submission** or **GitHub profile tone**
